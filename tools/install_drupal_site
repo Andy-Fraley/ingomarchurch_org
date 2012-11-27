@@ -1,0 +1,107 @@
+#!/bin/sh -x
+
+#
+# install_drupal_site <web_subdir_and_db_name>
+#
+# This script takes one command-line argument: the name of the web site
+# sub-directory to create which must match the name of the MySQL
+# database to install into.
+#
+# This script deletes/recreates a web site sub-directory under the web
+# host root directory and then uses drush to install a new Drupal site
+# into the sub-directory and into the same-named database.  On DreamHost,
+# since databases cannot be created via script, that same-named
+# database must be created in advance using DreamHost's admin panel.
+#
+# e.g. "install_drupal_site site11" will install new instance of
+# Drupal into the directory
+#   <WEB_ROOT_DIR>/site11
+# and install into MySQL database named "site11"
+#
+# A separate ~/.drupal_config file must declare all of the install
+# environment variables called out below.
+#
+
+if [ ! -x ~/.drupal_config.sh ]; then
+    echo "An executable ~/.drupal_config.sh file must exist and declare the"
+    echo "following variables:"
+    echo "  WEB_ROOT_DIR=<root directory from where local Web server serves files>"
+    echo "  DB_HOST=<machine where MySQL Server hosting Drupal Web site is running>"
+    echo "  DB_USER=<MySQL user name for accessing Drupal database>"
+    echo "  DB_PASSWORD=<MySQL password by which user name accesses Drupal database>"
+    echo "  DB_ROOT_PASSWORD=<MySQL Server root user password, do not set on DreamHost>"
+    echo "  SITE_ADMIN_USER=<Drupal admin user to be created>"
+    echo "  SITE_NAME=<Name of Drupal site, like \"Ingomar Church\">"
+    echo "  SITE_ACCOUNT_MAIL=<Email address where site admin emails are sent>"
+    echo "  INSTALL_MODULES=<Space-separated list of drupal.org modules to install>"
+    exit 1
+else
+    . ~/.drupal_config.sh
+fi
+
+# Create convenience handle for database locator URL
+DB_URL="mysql://$DB_USER:$DB_PASSWORD@$DB_HOST:3306/$1"
+
+# Directories to create
+NEW_DIRS="sites/default/files sites/all/modules/contrib sites/all/modules/custom sites/all/modules/admin"
+
+if [ $# -ne 1 ] || [ -z $1 ]; then
+    echo "Usage: $(basename $0) <web_subdir_and_db_name>"
+    echo "  where <web_subdir_and_db_name> is target install directory under $WEB_ROOT_DIR *and* is also name of existing MySQL database to install into"
+    exit 1
+fi
+
+WEB_SITE_SUBDIR="$WEB_ROOT_DIR/$1"
+
+if [ -d "$WEB_SITE_SUBDIR" ]; then
+    echo "Directory $WEB_SITE_SUBDIR already exists."
+    read -p "Delete directory and all contents recursively? (y/n) "
+    if [ "$REPLY" != "y" ]; then
+        echo -e "\nAborting..."
+        exit 1
+    fi
+    if [ -d "$WEB_SITE_SUBDIR/sites/default" ]; then
+        chmod +w "$WEB_SITE_SUBDIR/sites/default"
+    fi
+    rm -rf $WEB_SITE_SUBDIR
+fi
+
+# Create DB if we were given root DB password (leave blank on DreamHost where
+# DB cannot be scripted)
+if [ -n $DB_ROOT_PASSWORD ]; then
+    mysql -u root --password="$DB_ROOT_PASSWORD" -e "CREATE DATABASE IF NOT EXISTS $1"
+    mysql -u root --password="$DB_ROOT_PASSWORD" -e "GRANT ALL PRIVILEGES ON $1.* TO $DB_USER@localhost IDENTIFIED BY '$DB_PASSWORD'"
+fi
+
+# Use drush verbose mode
+DRUSH="drush -v"
+
+# Download Drupal core
+echo "cd'ing..."
+cd "$WEB_ROOT_DIR"
+echo "installing..."
+$DRUSH pm-download drupal --drupal-project-rename="$1"
+
+# Configure and install
+cd "$WEB_SITE_SUBDIR"
+mkdir -v $NEW_DIRS # create proper folder structure
+cp -v sites/default/default.settings.php sites/default/settings.php # create config file
+$DRUSH site-install --db-url=$DB_URL --account-name=$SITE_ADMIN_USER --account-pass=$SITE_ADMIN_PASSWORD --site-name="$SITE_NAME" --account-mail="$SITE_ACCOUNT_MAIL"
+
+# Change permissions of file posting directory
+chmod 777 "sites/default/files"
+
+# Download content modules
+if [ -n "$INSTALL_MODULES" ]; then
+    $DRUSH -y pm-download $INSTALL_MODULES
+fi
+
+# Enable modules
+if [ -n "$ENABLE_MODULES" ]; then
+    $DRUSH -y pm-enable $ENABLE_MODULES
+fi
+
+# Set default theme
+if [ -n "$THEME_DEFAULT" ]; then
+    $DRUSH vset theme_default $THEME_DEFAULT
+fi
