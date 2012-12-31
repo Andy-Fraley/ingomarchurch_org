@@ -1,0 +1,7 @@
+<?php
+/**
+ * @file
+ * Code for the worship_info feature.
+ */
+
+include_once 'worship_info.features.inc';
