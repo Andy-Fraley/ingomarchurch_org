@@ -5,9 +5,9 @@
 # Modules to install
 #
 INSTALL_MODULES="  date calendar admin_menu"
-INSTALL_MODULES+=" pathauto" # base modules
-INSTALL_MODULES+=" captcha recaptcha" # security modules
 INSTALL_MODULES+=" variable token pathauto" # API modules
+INSTALL_MODULES+=" entity auto_nodetitle" # base modules
+INSTALL_MODULES+=" captcha recaptcha" # security modules
 # INSTALL_MODULES+=" votingapi fivestar" # voting modules
 INSTALL_MODULES+=" wysiwyg" # WYSIWYG modules
 # INSTALL_MODULES+=" i18n" # language modules
@@ -19,12 +19,12 @@ INSTALL_MODULES+=" zen" # theme
 #
 # Modules to enable
 #
-ENABLE_MODULES=" zen features views_ui"
+ENABLE_MODULES=" entity features views_ui pathauto auto_nodetitle book"
 
 #
 # Theme to make default
 #
-THEME_DEFAULT="zen"
+THEME_DEFAULT="church_house"
 
 
 #
@@ -48,6 +48,8 @@ THEME_DEFAULT="zen"
 # A separate ~/.drupal_config file must declare all of the install
 # environment variables called out below.
 #
+
+SCRIPT_DIR="$( cd -P "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 # Ensure .drupal_config.sh exists, source it
 if [ ! -x ~/.drupal_config.sh ]; then
@@ -113,7 +115,7 @@ $DRUSH pm-download drupal --drupal-project-rename="$1"
 cd "$WEB_SITE_SUBDIR"
 mkdir -v $NEW_DIRS # create proper folder structure
 cp -v sites/default/default.settings.php sites/default/settings.php # create config file
-$DRUSH site-install --db-url=$DB_URL --account-name=$SITE_ADMIN_USER --account-pass=$SITE_ADMIN_PASSWORD --site-name="$SITE_NAME" --account-mail="$SITE_ACCOUNT_MAIL"
+$DRUSH -y site-install --db-url=$DB_URL --account-name=$SITE_ADMIN_USER --account-pass=$SITE_ADMIN_PASSWORD --site-name="$SITE_NAME" --account-mail="$SITE_ACCOUNT_MAIL"
 
 # Change permissions of file posting directory
 chmod 777 "sites/default/files"
@@ -126,6 +128,29 @@ fi
 # Enable modules
 if [ -n "$ENABLE_MODULES" ]; then
     $DRUSH -y pm-enable $ENABLE_MODULES
+fi
+
+# Set timezone, first day of week, country
+$DRUSH vset date_default_timezone "America/New_York"
+$DRUSH vset date_first_day "0"
+$DRUSH vset site_default_country "US"
+
+# Copy custom features across to custom modules directories
+cp -r $SCRIPT_DIR/../features/* $WEB_SITE_SUBDIR/sites/all/modules
+
+# Enable all custom features modules
+FEATURE_MODULES=`find $SCRIPT_DIR/../features/* -type d -printf " %f"`
+if [ -n "$FEATURE_MODULES" ]; then
+    $DRUSH -y en $FEATURE_MODULES
+fi
+
+# Copy themes across to custom themes directories
+cp -r $SCRIPT_DIR/../themes/* $WEB_SITE_SUBDIR/sites/all/themes
+
+# Enable all custom themes
+THEMES=`find $SCRIPT_DIR/../themes/* -maxdepth 0 -type d -printf " %f"`
+if [ -n "$THEMES" ]; then
+    $DRUSH -y en $THEMES
 fi
 
 # Set default theme
