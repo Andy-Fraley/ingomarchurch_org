@@ -14,17 +14,18 @@ INSTALL_MODULES+=" wysiwyg" # WYSIWYG modules
 INSTALL_MODULES+=" google_analytics" # statistics modules
 INSTALL_MODULES+=" views features ctools" # data extensibility modules
 INSTALL_MODULES+=" strongarm" # use variables with features
-INSTALL_MODULES+=" zen" # theme
+INSTALL_MODULES+=" panels" # for custom blocks arrangement
+INSTALL_MODULES+=" zen" # base theme
 
 #
 # Modules to enable
 #
-ENABLE_MODULES=" entity features views_ui pathauto auto_nodetitle book"
+ENABLE_MODULES=" entity features views_ui pathauto auto_nodetitle"
 
 #
 # Theme to make default
 #
-THEME_DEFAULT="church_house"
+THEME_DEFAULT="ingomarchurch"
 
 
 #

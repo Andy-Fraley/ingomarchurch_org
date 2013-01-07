@@ -1,0 +1,68 @@
+#!/bin/sh -x
+
+
+#
+# Custom theme to copy
+#
+CUSTOM_THEME_NAME="ingomarchurch"
+
+
+#
+# copy_custom_theme_to_live <web_subdir>
+#
+# This script takes one command-line argument: the name of the web site
+# sub-directory to push customer theme into.  This script deletes the
+# directory and replaces its content with local themes/$CUSTOM_THEME_NAME
+# contents which is backed by GIT.
+#
+# A separate ~/.drupal_config file must declare all of the install
+# environment variables called out below.
+#
+
+SCRIPT_DIR="$( cd -P "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
+
+# Ensure .drupal_config.sh exists, source it
+if [ ! -x ~/.drupal_config.sh ]; then
+    echo "An executable ~/.drupal_config.sh file must exist and declare the"
+    echo "following variables:"
+    echo "  WEB_ROOT_DIR=<root directory from where local Web server serves files>"
+    echo "  DB_HOST=<machine where MySQL Server hosting Drupal Web site is running>"
+    echo "  DB_USER=<MySQL user name for accessing Drupal database>"
+    echo "  DB_PASSWORD=<MySQL password by which user name accesses Drupal database>"
+    echo "  DB_ROOT_PASSWORD=<MySQL Server root user password, do not set on DreamHost>"
+    echo "  SITE_ADMIN_USER=<Drupal admin user to be created>"
+    echo "  SITE_NAME=<Name of Drupal site, like \"Ingomar Church\">"
+    echo "  SITE_ACCOUNT_MAIL=<Email address where site admin emails are sent>"
+    echo "  INSTALL_MODULES=<Space-separated list of drupal.org modules to install>"
+    exit 1
+else
+    . ~/.drupal_config.sh
+fi
+
+# Establish source of copy
+CUSTOM_THEME_SOURCE_DIRECTORY="$SCRIPT_DIR/../themes/$CUSTOM_THEME_NAME"
+if [ ! -d $CUSTOM_THEME_SOURCE_DIRECTORY ]; then
+    echo "Cannot find custom theme directory $CUSTOM_THEME_DIRECTORY"
+    exit 1
+fi
+
+# Ensure user specifies target 
+if [ $# -ne 1 ] || [ -z $1 ]; then
+    echo "Usage: $(basename $0) <web_subdir>"
+    echo "  where <web_subdir> is target install directory under $WEB_ROOT_DIR"
+    exit 1
+fi
+
+CUSTOM_THEME_TARGET_DIRECTORY="$WEB_ROOT_DIR/$1/sites/all/themes/$CUSTOM_THEME_NAME"
+
+if [ -d "$CUSTOM_THEME_TARGET_DIRECTORY" ]; then
+    echo "Directory $CUSTOM_THEME_TARGET_DIRECTORY already exists."
+    read -p "Delete and overwrite? (y/n) "
+    if [ "$REPLY" != "y" ]; then
+        echo -e "\nAborting..."
+        exit 1
+    fi
+fi
+
+rm -rf $CUSTOM_THEME_TARGET_DIRECTORY
+cp -r $CUSTOM_THEME_SOURCE_DIRECTORY $WEB_ROOT_DIR/$1/sites/all/themes
